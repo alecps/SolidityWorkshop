@@ -1,0 +1,12 @@
+{
+  "name": "solidityworkshop",
+  "version": "1.0.0",
+  "description": "Educational workshop to teach the basics of the Solidity programming language.",
+  "main": "truffle-config.js",
+  "author": "Alec Schaefer & Arvind Yalavarti",
+  "license": "ISC",
+  "dependencies": {
+    "ganache-cli": "6.4.1",
+    "truffle": "5.0.8"
+  }
+}
