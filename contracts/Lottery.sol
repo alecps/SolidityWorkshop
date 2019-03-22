@@ -3,11 +3,12 @@ pragma solidity ^0.5.2;
 contract Lottery {
   using SafeMath for uint256;
 
+  event LotteryWon(address winner, uint256 prize, uint256 ticketsIssued);
+
   mapping(address => uint256) public _ticketBalances;
   mapping(address => bytes32) public _commitments;
   mapping(address => bool) public _revealed;
-  uint256[] public _secrets;
-
+  uint256 private _xor;
   address[] public _candidates;
 
   uint256 public _ticketPrice;
@@ -16,17 +17,17 @@ contract Lottery {
   uint256 public _saleTimeout;
   uint256 public _lotteryTimeout;
 
-  constructor( // TODO: check formatting.
+  constructor(
     uint256 ticketPrice,
     uint256 saleDuration,
     uint256 lotteryDuration
   ) {
     require(ticketPrice > 0);
-    require(saleDuration > 0); // TODO: Make this stricter?
-    require(lotteryDuration > saleDuration); // TODO: Add a delta here? difference in prev blocktimes?
+    require(saleDuration > 0); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
+    require(lotteryDuration >= saleDuration.mul(2)); // Reveal phase must be at least as long as sale phase.
 
     _ticketPrice = ticketPrice;
-    _saleTimeout = now + saleDuration; // TODO: Should we use block number instead ??
+    _saleTimeout = now + saleDuration;
     _lotteryTimeout = now + lotteryDuration;
   }
 
@@ -46,8 +47,10 @@ contract Lottery {
   function buyTicket(bytes32 hashedSecret) external payable salePhase() {
     require(msg.value >= ticketPrice);
 
+    uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
+
     // hashedSecret only committed on first ticket purchase.
-    if (_ticketBalances[msg.sender] == 0) {
+    if (ticketBalance == 0) {
       _commitments[msg.sender] = hashedSecret;
     }
 
@@ -57,34 +60,36 @@ contract Lottery {
       msg.sender.transfer(msg.value.sub(spentWei));
     }
 
-    _ticketBalances[msg.sender] = _ticketBalances[msg.sender].add(numPurchased);
+    _ticketBalances[msg.sender] = ticketBalance.add(numPurchased);
     _ticketsIssued = _ticketsIssued.add(numPurchased);
   }
 
   function reveal(uint256 secret) external revealPhase() {
-    require(_ticketBalances[msg.sender] > 0);
     require(!_revealed[msg.sender]);
+    uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
+    require(ticketBalance > 0);
 
-    require(_commitments[msg.sender] == keccack256(abi.encodedPacket(secret)));
+    // Verify secret.
+    require(_commitments[msg.sender] == keccack256(abi.encodePacked(secret)));
 
-    _secrets = _secrets.push(secret);
+    _xor = _xor ^ secret;
     _revealed[msg.sender] = true;
-    for (uint256 i = 0; i < _ticketBalances[msg.sender]; i++) {
-      _candidates = _candidates.push(msg.sender); // TODO: Better to be spread out (not contiguous)?
+    for (uint256 i = 0; i < ticketBalance; i++) { // Ticket price will have to be high enough to protect this loop.
+      _candidates.push(msg.sender);
     }
   }
 
   function findWinner() public payoutPhase() {
-    uint256[] memory secrets = _secrets; // TODO: Does this work??
+    uint256 numCandidates = _candidates.length; // Gas optimization.
+    require(numCandidates > 0);
 
-    uint256 xor = 0;
-    for(uint256 i = 0; i < secrets.length; i++) {
-      xor = xor ^ secrets[i];
-    }
+    uint256 winningIndex = uint256(
+      keccack256(abi.encodePacked(_xor, blockhash(block.number-1)))
+    ).mod(numCandidates);
 
-    address winner = _candidates[xor.mod(secrets.length)];
-    winner.transfer(this.balance);
-    // TODO: self destruct?
+    address winner = _candidates[winningIndex];
+    emit LotteryWon(winner, this.balance, _ticketsIssued);
+    selfdestruct(winner); // Destroys this contract and sends balance to winner.
   }
 
 }
