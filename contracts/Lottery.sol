@@ -1,4 +1,5 @@
 pragma solidity ^0.5.2;
+import "./SafeMath.sol";
 
 contract Lottery {
   using SafeMath for uint256;
@@ -17,11 +18,11 @@ contract Lottery {
   uint256 public _saleTimeout;
   uint256 public _lotteryTimeout;
 
-  constructor(
+  constructor (
     uint256 ticketPrice,
     uint256 saleDuration,
     uint256 lotteryDuration
-  ) {
+  ) public {
     require(ticketPrice > 0);
     require(saleDuration > 0); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
     require(lotteryDuration >= saleDuration.mul(2)); // Reveal phase must be at least as long as sale phase.
@@ -45,7 +46,7 @@ contract Lottery {
   }
 
   function buyTicket(bytes32 hashedSecret) external payable salePhase() {
-    require(msg.value >= ticketPrice);
+    require(msg.value >= _ticketPrice);
 
     uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
 
@@ -54,8 +55,8 @@ contract Lottery {
       _commitments[msg.sender] = hashedSecret;
     }
 
-    uint256 numPurchased = msg.value.div(ticketPrice);
-    uint256 spentWei = numPurchased.mul(ticketPrice);
+    uint256 numPurchased = msg.value.div(_ticketPrice);
+    uint256 spentWei = numPurchased.mul(_ticketPrice);
     if (msg.value > spentWei) { // Return any unused wei.
       msg.sender.transfer(msg.value.sub(spentWei));
     }
@@ -70,7 +71,7 @@ contract Lottery {
     require(ticketBalance > 0);
 
     // Verify secret.
-    require(_commitments[msg.sender] == keccack256(abi.encodePacked(secret)));
+    require(_commitments[msg.sender] == keccak256(abi.encodePacked(secret)));
 
     _xor = _xor ^ secret;
     _revealed[msg.sender] = true;
@@ -84,11 +85,11 @@ contract Lottery {
     require(numCandidates > 0);
 
     uint256 winningIndex = uint256(
-      keccack256(abi.encodePacked(_xor, blockhash(block.number-1)))
+      keccak256(abi.encodePacked(_xor, blockhash(block.number-1)))
     ).mod(numCandidates);
 
-    address winner = _candidates[winningIndex];
-    emit LotteryWon(winner, this.balance, _ticketsIssued);
+    address payable winner = address(uint160(_candidates[winningIndex]));
+    emit LotteryWon(winner, address(this).balance, _ticketsIssued);
     selfdestruct(winner); // Destroys this contract and sends balance to winner.
   }
 
