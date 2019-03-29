@@ -1,0 +1,83 @@
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+  font-size: 14px;
+  overflow-x: hidden;
+}
+
+html.mod-touch * {
+  background-attachment: scroll !important;
+}
+
+button {
+  font-family: "Nunito", sans-serif;
+}
+
+img {
+  outline: none;
+  user-select: none !important;
+  -moz-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+body {
+  margin: 0px;
+  min-height: 100%;
+  line-height: 20px;
+  height: 100%;
+  background: #ffffff;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 700;
+}
+
+p {
+  display: block;
+  margin: 0px auto 5px;
+  font-family: "Nunito", sans-serif;
+  font-size: 12pt;
+  line-height: 20px;
+  color: #111520;
+  letter-spacing: 0px;
+}
+
+
+a {
+  text-decoration: none;
+}
+
+.container {
+  -webkit-transition: all 0.5s ease-in-out;
+  -moz-transition: all 0.5s ease-in-out;
+  -o-transition: all 0.5s ease-in-out;
+  transition: all 0.5s ease-in-out;
+}
+
+.body {
+  min-height: 80vh;
+  height: auto;
+}
+
+.logo {
+  height: 100px;
+}
+
+.copyright {
+  position: relative;
+  left: 1px;
+  margin-bottom: 15px;
+  color: #A1A2A7;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  font-family: "Nunito", sans-serif;
+}

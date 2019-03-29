@@ -1,0 +1,27 @@
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+  font-size: 14px;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0px;
+  min-height: 100%;
+  line-height: 20px;
+  text-align: center;
+  height: 100%;
+  background: #FFF;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+}
+
+.noscript {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 18px;
+  font-family: "Nunito", sans-serif;
+  color: rgb(90, 153, 249);
+}
