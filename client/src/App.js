@@ -40,11 +40,7 @@ class App extends Component {
 					<img src={logo} className='logo' alt='logo' />
 				</div>
 				<div className='body'>
-					<div className='players-containers'>
-						<LotteryPlayers drizzle={this.props.drizzle} drizzleState={this.state.drizzleState} />{" "}
-					</div>
-
-					<div className='controls-container' />
+					<LotteryPlayers drizzle={this.props.drizzle} drizzleState={this.state.drizzleState} />{" "}
 				</div>
 				<section className='section footer'>
 					<div className='footer-content'>
