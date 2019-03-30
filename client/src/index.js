@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import "./index.css";
 import App from "./App";
 import * as serviceWorker from "./serviceWorker";
+import { BrowserRouter } from "react-router-dom";
 
 // import drizzle functions and contract artifact
 import { Drizzle, generateStore } from "drizzle";
@@ -22,4 +23,9 @@ const options = {
 // setup the drizzle store and drizzle
 const drizzle = new Drizzle(options);
 
-ReactDOM.render(<App drizzle={drizzle} />, document.getElementById("root"));
+ReactDOM.render(
+	<BrowserRouter>
+		<App drizzle={drizzle} />
+	</BrowserRouter>,
+	document.getElementById("root")
+);
