@@ -3,6 +3,7 @@ html {
 	height: 100%;
 	font-size: 14px;
 	overflow-x: hidden;
+	font-family: "Nunito", sans-serif;
 }
 
 html.mod-touch * {
@@ -23,6 +24,7 @@ img {
 }
 
 body {
+	font-family: "Nunito", sans-serif;
 	margin: 0px;
 	min-height: 100%;
 	line-height: 20px;
@@ -54,6 +56,12 @@ a {
 	text-decoration: none;
 }
 
+input {
+	outline: none;
+	padding: 10px;
+	font-family: "Nunito", sans-serif;
+}
+
 .container {
 	-webkit-transition: all 0.5s ease-in-out;
 	-moz-transition: all 0.5s ease-in-out;
@@ -64,20 +72,27 @@ a {
 .body {
 	min-height: 80vh;
 	height: auto;
+	margin-bottom: 20px;
 }
 
+.controls-container,
+.manager-container,
 .players-container {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
 	align-items: center;
+	max-width: 1000px;
+	margin-right: auto;
+	margin-left: auto;
 }
 
-.controls-container {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	align-items: center;
+.manager-container {
+	margin-top: 50px;
+}
+
+.ticketInput {
+	width: 50px;
 }
 
 .card {
@@ -85,19 +100,33 @@ a {
 	padding: 10px;
 	margin: 10px 30px;
 	width: 200px;
-	height: 100px;
-	background: #f5f5f5;
+	height: auto;
+	background: #FFF;
 	border-radius: 15px;
 	box-shadow: 0 2px 4px 0 #0000001e, 0 5px 10px 0 #0000002f;
 	font-size: 16px;
 }
 
+.card.manager {
+	width: 300px;
+}
+
+
+.card.controls {
+	width: 400px;
+	margin-bottom: 30px;
+}
+
+input {
+	width: 175px;
+}
+
 Button {
-	font-size: 18px;
+	font-size: 12px;
 	background: #fff;
-	border-radius: 20px;
 	box-shadow: 0 2px 4px 0 #0000001e, 0 2px 4px 0 #0000002f;
-	width: 40px;
+	width: auto;
+	border-radius: 10px;
 	height: 40px;
 	margin: 10px;
 	cursor: pointer;

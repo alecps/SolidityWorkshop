@@ -15,7 +15,7 @@ const options = {
 	web3: {
 		fallback: {
 			type: "ws",
-			url: "ws://127.0.0.1:9545"
+			url: "ws://127.0.0.1:8545"
 		}
 	}
 };
@@ -25,7 +25,7 @@ const drizzle = new Drizzle(options);
 
 ReactDOM.render(
 	<BrowserRouter>
-		<App drizzle={drizzle} />
+		<App drizzle={drizzle} />{" "}
 	</BrowserRouter>,
 	document.getElementById("root")
 );
