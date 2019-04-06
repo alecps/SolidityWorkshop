@@ -35,9 +35,10 @@ contract Lottery {
   address[] public _ticketHolders;
   address[] public _candidates;
 
-  uint256 public _ticketPrice;
   uint256 public _ticketsIssued;
 
+  uint256 public _ticketPrice;
+  uint256 public _commission;
   uint256 public _saleTimeout;
   uint256 public _revealTimeout;
 
@@ -72,8 +73,9 @@ contract Lottery {
 
   function activate(
     uint256 ticketPrice,
+    uint256 commission,
     uint256 salePhaseDuration,
-    uint256 revealPhaseDuration
+    uint256 revealPhaseDuration,
   ) external inactive() onlyOwner() {
     require(ticketPrice > 0);
     require(salePhaseDuration > 0); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
@@ -81,6 +83,7 @@ contract Lottery {
 
     _lotteryID++;
     _ticketPrice = ticketPrice;
+    _commission = commission;
     uint256 saleTimeout = now.add(salePhaseDuration); // TODO: Is this actually a gas optimization??
     uint256 revealTimeout = saleTimeout.add(revealPhaseDuration);
     _saleTimeout = saleTimeout;
@@ -134,7 +137,7 @@ contract Lottery {
     ).mod(numCandidates);
 
     address payable winner = address(uint160(_candidates[winningIndex]));
-    uint256 commission = address(this).balance.div(10); // Owner takes 10%
+    uint256 commission = address(this).balance.div(_commission); // Owner takes 10%
     _owner.transfer(commission);
     uint256 prize = address(this).balance;
     winner.transfer(prize);
@@ -156,6 +159,7 @@ contract Lottery {
     require(address(this).balance == 0);
 
     delete(_ticketPrice);
+    delete(_commission);
     delete(_ticketsIssued);
     delete(_saleTimeout);
     delete(_revealTimeout);
