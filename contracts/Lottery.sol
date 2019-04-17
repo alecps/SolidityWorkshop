@@ -75,9 +75,9 @@ contract Lottery {
     uint256 salePhaseDuration,
     uint256 revealPhaseDuration
   ) external inactive() onlyOwner() {
-    require(ticketPrice > 0);
-    require(salePhaseDuration > 0); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
-    require(revealPhaseDuration >= salePhaseDuration); // Reveal phase must be at least as long as sale phase.
+    require(ticketPrice > 0, "Ticket price not greater than 0");
+    require(salePhaseDuration > 0, "Sale phase time must be greater than 0"); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
+    require(revealPhaseDuration >= salePhaseDuration, "Reveal phase time must be greater than sale phase time"); // Reveal phase must be at least as long as sale phase.
 
     _lotteryID++;
     _ticketPrice = ticketPrice;
@@ -91,7 +91,7 @@ contract Lottery {
   }
 
   function buyTicket(bytes32 hashedSecret) external payable salePhase() {
-    require(msg.value >= _ticketPrice);
+    require(msg.value >= _ticketPrice, "Message value not greater than ticket price.");
 
     uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
 
@@ -111,12 +111,12 @@ contract Lottery {
   }
 
   function reveal(uint256 secret) external revealPhase() {
-    require(!_revealed[msg.sender]);
+    require(!_revealed[msg.sender], "Sender should not have revealed already.");
     uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
-    require(ticketBalance > 0);
+    require(ticketBalance > 0, "Must have contributed to lottery.");
 
     // Verify secret.
-    require(_commitments[msg.sender] == keccak256(abi.encodePacked(secret)));
+    require(_commitments[msg.sender] == keccak256(abi.encodePacked(secret)), "Hashed secret must match revealed secret.");
 
     _xor = _xor ^ secret;
     _revealed[msg.sender] = true;
@@ -127,7 +127,7 @@ contract Lottery {
 
   function findWinner() public payoutPhase() {
     uint256 numCandidates = _candidates.length; // Gas optimization.
-    require(numCandidates > 0);
+    require(numCandidates > 0, "Must be at least 1 participant.");
 
     uint256 winningIndex = uint256(
       keccak256(abi.encodePacked(_xor, blockhash(block.number-1)))
