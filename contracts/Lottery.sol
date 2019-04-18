@@ -27,9 +27,9 @@ contract Lottery {
   bool public _active;
   uint256 public _timeLastActivated;
 
-  mapping(bytes32 => uint256) public _ticketBalances;
-  mapping(bytes32 => bytes32) public _commitments;
-  mapping(bytes32 => bool) public _revealed;
+  mapping(bytes32 => uint256) private _ticketBalances;
+  mapping(bytes32 => bytes32) private _commitments;
+  mapping(bytes32 => bool) private _revealed;
   uint256 private _xor;
 
   address[] public _candidates;
@@ -47,31 +47,42 @@ contract Lottery {
   }
 
   modifier onlyOwner() {
-    require(msg.sender == _owner);
+    require(msg.sender == _owner, "Message sender is not lottery owner.");
     _;
   }
   modifier inactive() {
-    require(!_active);
+    require(!_active, "Lottery is active.");
     _;
   }
   modifier active() {
-    require(_active);
+    require(_active, "Lottery is inactive.");
     _;
   }
   modifier salePhase() {
-    require(_active);
-    require(now < _saleTimeout);
+    require(_active, "Lottery is inactive.");
+    require(now < _saleTimeout, "Lottery not in sale phase.");
     _;
   }
   modifier revealPhase() {
-    require(_active);
-    require(now > _saleTimeout && now < _revealTimeout);
+    require(_active, "Lottery is inactive.");
+    require(now > _saleTimeout && now < _revealTimeout, "Lottery not in reveal phase.");
     _;
   }
   modifier payoutPhase() {
-    require(_active);
-    require(now > _revealTimeout);
+    require(_active, "Lottery is inactive.");
+    require(now > _revealTimeout, "Lottery not in payout phase.");
     _;
+  }
+
+  // Getters for mappings.
+  function getTicketBalance(address a) external view active() returns (uint256) {
+    return _ticketBalances[getKey(a)];
+  }
+  function getCommitment(address a) external view active() returns (bytes32) {
+    return _commitments[getKey(a)];
+  }
+  function getRevealed(address a) external view active() returns (bool) {
+    return _revealed[getKey(a)];
   }
 
   function activate(
