@@ -21,40 +21,33 @@ contract Lottery {
     uint256 duration
   );
 
-  address payable public _owner; //TODO: inherit from ownable.sol?
+  address payable public _owner;
 
   uint256 public _lotteryID;
   bool public _active;
   uint256 public _timeLastActivated;
 
-  mapping(address => uint256) public _ticketBalances;
-  mapping(address => bytes32) public _commitments;
-  mapping(address => bool) public _revealed;
+  mapping(bytes32 => uint256) public _ticketBalances;
+  mapping(bytes32 => bytes32) public _commitments;
+  mapping(bytes32 => bool) public _revealed;
   uint256 private _xor;
 
-  address[] public _ticketHolders;
   address[] public _candidates;
 
-  uint256 public _ticketPrice;
   uint256 public _ticketsIssued;
 
+  uint256 public _ticketPrice;
+  uint256 public _commissionRate;
   uint256 public _saleTimeout;
   uint256 public _revealTimeout;
 
   constructor() public {
     _owner = msg.sender;
+    _lotteryID = 1; // Lotteries are indexed starting at 1.
   }
 
-  modifier salePhase() {
-    require(now < _saleTimeout);
-    _;
-  }
-  modifier revealPhase() {
-    require(now > _saleTimeout && now < _revealTimeout);
-    _;
-  }
-  modifier payoutPhase() {
-    require(now > _revealTimeout);
+  modifier onlyOwner() {
+    require(msg.sender == _owner);
     _;
   }
   modifier inactive() {
@@ -65,13 +58,25 @@ contract Lottery {
     require(_active);
     _;
   }
-  modifier onlyOwner() {
-    require(msg.sender == _owner);
+  modifier salePhase() {
+    require(_active);
+    require(now < _saleTimeout);
+    _;
+  }
+  modifier revealPhase() {
+    require(_active);
+    require(now > _saleTimeout && now < _revealTimeout);
+    _;
+  }
+  modifier payoutPhase() {
+    require(_active);
+    require(now > _revealTimeout);
     _;
   }
 
   function activate(
     uint256 ticketPrice,
+    uint256 commissionRate,
     uint256 salePhaseDuration,
     uint256 revealPhaseDuration
   ) external inactive() onlyOwner() {
@@ -79,9 +84,9 @@ contract Lottery {
     require(salePhaseDuration > 0, "Sale phase time must be greater than 0"); // Should make this stricter, but we'll keep it as is for the purposes of the workshop.
     require(revealPhaseDuration >= salePhaseDuration, "Reveal phase time must be greater than sale phase time"); // Reveal phase must be at least as long as sale phase.
 
-    _lotteryID++;
     _ticketPrice = ticketPrice;
-    uint256 saleTimeout = now.add(salePhaseDuration); // TODO: Is this actually a gas optimization??
+    _commissionRate = commissionRate;
+    uint256 saleTimeout = now.add(salePhaseDuration);
     uint256 revealTimeout = saleTimeout.add(revealPhaseDuration);
     _saleTimeout = saleTimeout;
     _revealTimeout = revealTimeout;
@@ -93,11 +98,13 @@ contract Lottery {
   function buyTicket(bytes32 hashedSecret) external payable salePhase() {
     require(msg.value >= _ticketPrice, "Message value not greater than ticket price.");
 
-    uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
+    bytes32 key = getKey(msg.sender);
+
+    uint256 ticketBalance = _ticketBalances[key]; // Gas optimization.
 
     // hashedSecret only committed on first ticket purchase.
     if (ticketBalance == 0) {
-      _commitments[msg.sender] = hashedSecret;
+      _commitments[key] = hashedSecret;
     }
 
     uint256 numPurchased = msg.value.div(_ticketPrice);
@@ -106,20 +113,21 @@ contract Lottery {
       msg.sender.transfer(msg.value.sub(spentWei));
     }
 
-    _ticketBalances[msg.sender] = ticketBalance.add(numPurchased);
+    _ticketBalances[key] = ticketBalance.add(numPurchased);
     _ticketsIssued = _ticketsIssued.add(numPurchased);
   }
 
   function reveal(uint256 secret) external revealPhase() {
-    require(!_revealed[msg.sender], "Sender should not have revealed already.");
-    uint256 ticketBalance = _ticketBalances[msg.sender]; // Gas optimization.
-    require(ticketBalance > 0, "Must have contributed to lottery.");
+    bytes32 key = getKey(msg.sender);
+    require(!_revealed[key]);
+    uint256 ticketBalance = _ticketBalances[key]; // Gas optimization.
+    require(ticketBalance > 0);
 
     // Verify secret.
-    require(_commitments[msg.sender] == keccak256(abi.encodePacked(secret)), "Hashed secret must match revealed secret.");
+    require(_commitments[key] == keccak256(abi.encodePacked(secret)));
 
     _xor = _xor ^ secret;
-    _revealed[msg.sender] = true;
+    _revealed[key] = true;
     for (uint256 i = 0; i < ticketBalance; i++) { // Ticket price will have to be high enough to protect this loop.
       _candidates.push(msg.sender);
     }
@@ -134,7 +142,7 @@ contract Lottery {
     ).mod(numCandidates);
 
     address payable winner = address(uint160(_candidates[winningIndex]));
-    uint256 commission = address(this).balance.div(10); // Owner takes 10%
+    uint256 commission = address(this).balance.div(_commissionRate);
     _owner.transfer(commission);
     uint256 prize = address(this).balance;
     winner.transfer(prize);
@@ -155,33 +163,35 @@ contract Lottery {
   function deactivate() internal active() {
     require(address(this).balance == 0);
 
+    // Delete state variables.
     delete(_ticketPrice);
+    delete(_commissionRate);
     delete(_ticketsIssued);
     delete(_saleTimeout);
     delete(_revealTimeout);
     delete(_xor);
 
-    uint256 numTicketHolders = _ticketHolders.length;
-    for(uint256 i = 0; i < numTicketHolders; i++) {
-      address ticketHolder = _ticketHolders[i];
-      delete(_ticketHolders[i]);
-      delete(_ticketBalances[ticketHolder]);
-      delete(_commitments[ticketHolder]);
-    }
-    _ticketHolders.length = 0;
-
-    uint256 numCandidates = _candidates.length;
-    for(uint256 n = 0; n < numCandidates; n++) {
-      address candidate = _candidates[n];
-      delete(_candidates[n]);
-      delete(_revealed[candidate]);
-    }
+    // Delete candidates array.
     _candidates.length = 0;
 
+    // Delete mappings.
+    _lotteryID++;
+
+    // Make inactive.
     _active = false;
+  }
 
-    //TODO : Should we do this using lotteryID? The above method may cost too much gas.
 
+  function recoverGas(uint256 lotteryID, address ticketHolder) external {
+    require(lotteryID < _lotteryID && lotteryID > 0);
+    bytes32 key = keccak256(abi.encodePacked(lotteryID, ticketHolder));
+    delete(_ticketBalances[key]);
+    delete(_commitments[key]);
+    delete(_revealed[key]);
+  }
+
+  function getKey(address a) internal view returns (bytes32) {
+    return keccak256(abi.encodePacked(a, _lotteryID));
   }
 
 }
