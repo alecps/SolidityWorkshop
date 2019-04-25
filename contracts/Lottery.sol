@@ -23,14 +23,15 @@ contract Lottery {
 
   address payable public _owner;
 
-  uint256 public _lotteryID;
+  uint256 public _lotteryID; // Is incremented with each new Lottery. Used to create mapping keys.
   bool public _active;
   uint256 public _timeLastActivated;
 
+  // Keys to mappings are generated with getKey()
   mapping(bytes32 => uint256) private _ticketBalances;
   mapping(bytes32 => bytes32) private _commitments;
   mapping(bytes32 => bool) private _revealed;
-  uint256 private _xor;
+  uint256 private _xor; // Used to determine lottery winner.
 
   address[] public _candidates;
 
@@ -111,7 +112,7 @@ contract Lottery {
 
     bytes32 key = getKey(msg.sender);
 
-    uint256 ticketBalance = _ticketBalances[key]; // Gas optimization.
+    uint256 ticketBalance = _ticketBalances[key]; // Gas optimization. Only need to access storage once. It's cheaper to access memory than storage.
 
     // hashedSecret only committed on first ticket purchase.
     if (ticketBalance == 0) {
@@ -139,22 +140,38 @@ contract Lottery {
 
     _xor = _xor ^ secret;
     _revealed[key] = true;
-    for (uint256 i = 0; i < ticketBalance; i++) { // Ticket price will have to be high enough to protect this loop.
+    for (uint256 i = 0; i < ticketBalance; i++) { // Ticket price will have to be high enough to protect this loop. If not, someone could buy too many tickets and not be able to reveal().
       _candidates.push(msg.sender);
     }
+    // Each entry in the _candidates array could be the winning entry.
+    // You only get added to the _candidates array when you reveal.
   }
 
   function findWinner() public payoutPhase() {
     uint256 numCandidates = _candidates.length; // Gas optimization.
     require(numCandidates > 0, "Must be at least 1 participant.");
 
+    /*
+     * Find the index of the winning entry in the _candidates array.
+     * We use _xor to generate the winning index because it is determined by
+     * everyone's secrets, and is a secure source of randomness. We also use
+     * the hash of the previous block as an additional source of randomness.
+     * Without the hash of the previous block, someone could potentially monitor
+     * the value of _xor and then, once they are the winner, try and flood the
+     * network with high gas txs to prevent anyone else from revealing their
+     * secret and changing the value of _xor before the timeout. If we include
+     * the hash of the previous block, the attacker can never be sure a given
+     * value of _xor will make them winner. This type of attack was succesfully
+     * executed to win the $3M FOMO3D jackpot:
+     * https://medium.com/coinmonks/how-the-winner-got-fomo3d-prize-a-detailed-explanation-b30a69b7813f
+     */
     uint256 winningIndex = uint256(
       keccak256(abi.encodePacked(_xor, blockhash(block.number-1)))
     ).mod(numCandidates);
 
     address payable winner = address(uint160(_candidates[winningIndex]));
     uint256 commission = address(this).balance.div(_commissionRate);
-    _owner.transfer(commission);
+    _owner.transfer(commission); // .transfer is safer than other methods of sending eth.
     uint256 prize = address(this).balance;
     winner.transfer(prize);
 
@@ -182,17 +199,23 @@ contract Lottery {
     delete(_revealTimeout);
     delete(_xor);
 
-    // Delete candidates array.
+    // Delete candidates array. Entries will remain in storage, but the array will think its empty so they'll be innaccessible.
     _candidates.length = 0;
 
-    // Delete mappings.
+    // Delete mappings. By incrementing this, all the keys become different. Exceptionally low chance of collisions in storage.
     _lotteryID++;
 
     // Make inactive.
     _active = false;
   }
 
-
+  /*
+   * Returning participants from former lotteries can reclaim the storage they
+   * used to place their bid by appending a call to this function to the transaction
+   * (after they call buyTicket()) and get a discount on the gas cost of buying
+   * a ticket. This is bc deleting items from storage comes with a gas refund in
+   * Ethereum.
+   */
   function recoverGas(uint256 lotteryID, address ticketHolder) external {
     require(lotteryID < _lotteryID && lotteryID > 0);
     bytes32 key = keccak256(abi.encodePacked(lotteryID, ticketHolder));
